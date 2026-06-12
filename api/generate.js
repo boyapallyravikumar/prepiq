@@ -9,34 +9,45 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Prompt is required' });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
     return res.status(500).json({ error: 'API key not configured on server.' });
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'Authorization': 'Bearer ' + apiKey
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'llama-3.3-70b-versatile',
         max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }]
+        temperature: 0.7,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert technical recruiter. Always respond with valid JSON arrays only. No markdown, no explanation, just raw JSON.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
       })
     });
 
     if (!response.ok) {
       const err = await response.json();
-      return res.status(response.status).json({ error: err.error?.message || 'Claude API error' });
+      return res.status(response.status).json({
+        error: err.error?.message || 'Groq API error. Please check your API key.'
+      });
     }
 
     const data = await response.json();
-    const result = data.content[0].text;
+    const result = data.choices[0].message.content;
     return res.status(200).json({ result });
 
   } catch (error) {
